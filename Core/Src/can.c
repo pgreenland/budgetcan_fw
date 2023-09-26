@@ -220,6 +220,13 @@ void can_enable(CAN_HANDLE_TYPEDEF *hcan, bool loop_back, bool listen_only, bool
 
 	HAL_FDCAN_Init(hcan);
 
+	/*
+	** Enable automatic transceiver delay compensation as referenced:
+	** 	https://community.st.com/t5/stm32-mcu-products/stm32h7-fdcan-8-mbit-s-setup-docum-unclear-sync-seg/td-p/79992/page/3
+	*/
+	HAL_FDCAN_ConfigTxDelayCompensation(hcan, hcan->Init.DataTimeSeg1 * hcan->Init.DataPrescaler, 0);
+	HAL_FDCAN_EnableTxDelayCompensation(hcan);
+
 	/* Configure reception filter to Rx FIFO 0 on both FDCAN instances */
 	sFilterConfig.IdType = FDCAN_STANDARD_ID;
 	sFilterConfig.FilterIndex = 0;
