@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "cwd": "${workspaceRoot}",
+            "executable": "./Portable/board_usbtocanfd/build/USBtoCANFD.elf",
+            "name": "Launch (Program / Debug)",
+            "request": "launch",
+            "type": "cortex-debug",
+            "showDevDebugOutput": "both",
+            "servertype": "openocd",
+            "openOCDLaunchCommands": ["reset_config trst_only"],
+            "searchDir": [
+                "${workspaceRoot}",
+                "/opt/openocd/xpack-openocd-0.11.0-3/scripts"
+            ],
+            "configFiles": [
+                "board/st_nucleo_g0.cfg"
+            ],
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 1
+            },
+            "svdPath": "/opt/STM32CubeProgrammer/SVD/STM32G0B1.svd"
+        }
+    ]
+}
