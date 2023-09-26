@@ -91,10 +91,14 @@ extern "C" {
 #define CAN2_RX_GPIO_Port GPIOB
 #define CAN2_TX_Pin GPIO_PIN_1
 #define CAN2_TX_GPIO_Port GPIOB
+#define CAN_PWR_FAULT_Pin GPIO_PIN_8
+#define CAN_PWR_FAULT_GPIO_Port GPIOA
 #define LED_PWR_Pin GPIO_PIN_9
 #define LED_PWR_GPIO_Port GPIOA
 #define CAN_PWR_EN_Pin GPIO_PIN_6
 #define CAN_PWR_EN_GPIO_Port GPIOC
+#define LED_CAN_PWR_EN_FAULT_Pin GPIO_PIN_10
+#define LED_CAN_PWR_EN_FAULT_GPIO_Port GPIOA
 #define USB_DM_Pin GPIO_PIN_11
 #define USB_DM_GPIO_Port GPIOA
 #define USB_DP_Pin GPIO_PIN_12
@@ -103,14 +107,18 @@ extern "C" {
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_BOOT0_Pin GPIO_PIN_14
 #define SWCLK_BOOT0_GPIO_Port GPIOA
-#define LED_CAN1_RX_Pin GPIO_PIN_3
-#define LED_CAN1_RX_GPIO_Port GPIOB
-#define LED_CAN1_TX_Pin GPIO_PIN_4
+#define LED_CAN1_RX_Pin GPIO_PIN_15
+#define LED_CAN1_RX_GPIO_Port GPIOA
+#define LED_CAN1_TX_Pin GPIO_PIN_3
 #define LED_CAN1_TX_GPIO_Port GPIOB
+#define LED_CAN1_EN_Pin GPIO_PIN_4
+#define LED_CAN1_EN_GPIO_Port GPIOB
 #define LED_CAN2_TX_Pin GPIO_PIN_5
 #define LED_CAN2_TX_GPIO_Port GPIOB
 #define LED_CAN2_RX_Pin GPIO_PIN_6
 #define LED_CAN2_RX_GPIO_Port GPIOB
+#define LED_CAN2_EN_Pin GPIO_PIN_7
+#define LED_CAN2_EN_GPIO_Port GPIOB
 #define CAN1_RX_Pin GPIO_PIN_8
 #define CAN1_RX_GPIO_Port GPIOB
 

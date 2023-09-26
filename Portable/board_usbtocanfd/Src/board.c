@@ -33,8 +33,11 @@ THE SOFTWARE.
 #include "led.h"
 
 static LED_HandleTypeDef hled_pwr;
+static LED_HandleTypeDef hled_can_pwr_en_fault;
+static LED_HandleTypeDef hled_can1en;
 static LED_HandleTypeDef hled_can1rx;
 static LED_HandleTypeDef hled_can1tx;
+static LED_HandleTypeDef hled_can2en;
 static LED_HandleTypeDef hled_can2rx;
 static LED_HandleTypeDef hled_can2tx;
 
@@ -42,6 +45,9 @@ FDCAN_HandleTypeDef hfdcan1;
 FDCAN_HandleTypeDef hfdcan2;
 
 extern USBD_GS_CAN_HandleTypeDef hGS_CAN;
+
+static uint8_t can_term_pwr_flags;
+#define CAN_TERM_PWR_FLAGS_BOTH_INTFC (0x03)
 
 /**
   * @brief System Clock Configuration
@@ -105,20 +111,29 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, CAN1_STBY_Pin|CAN2_STBY_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_PWR_GPIO_Port, LED_PWR_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LED_PWR_Pin|LED_CAN_PWR_EN_FAULT_Pin|LED_CAN1_RX_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(CAN_PWR_EN_GPIO_Port, CAN_PWR_EN_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED_CAN1_RX_Pin|LED_CAN1_TX_Pin|LED_CAN2_TX_Pin|LED_CAN2_RX_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, LED_CAN1_TX_Pin|LED_CAN1_EN_Pin|LED_CAN2_TX_Pin|LED_CAN2_RX_Pin
+                          |LED_CAN2_EN_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : CAN1_STBY_Pin CAN2_STBY_Pin LED_PWR_Pin */
-  GPIO_InitStruct.Pin = CAN1_STBY_Pin|CAN2_STBY_Pin|LED_PWR_Pin;
+  /*Configure GPIO pins : CAN1_STBY_Pin CAN2_STBY_Pin LED_PWR_Pin LED_CAN_PWR_EN_FAULT_Pin
+                           LED_CAN1_RX_Pin */
+  GPIO_InitStruct.Pin = CAN1_STBY_Pin|CAN2_STBY_Pin|LED_PWR_Pin|LED_CAN_PWR_EN_FAULT_Pin
+                          |LED_CAN1_RX_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : CAN_PWR_FAULT_Pin */
+  GPIO_InitStruct.Pin = CAN_PWR_FAULT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(CAN_PWR_FAULT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CAN_PWR_EN_Pin */
   GPIO_InitStruct.Pin = CAN_PWR_EN_Pin;
@@ -127,8 +142,10 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(CAN_PWR_EN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LED_CAN1_RX_Pin LED_CAN1_TX_Pin LED_CAN2_TX_Pin LED_CAN2_RX_Pin */
-  GPIO_InitStruct.Pin = LED_CAN1_RX_Pin|LED_CAN1_TX_Pin|LED_CAN2_TX_Pin|LED_CAN2_RX_Pin;
+  /*Configure GPIO pins : LED_CAN1_TX_Pin LED_CAN1_EN_Pin LED_CAN2_TX_Pin LED_CAN2_RX_Pin
+                           LED_CAN2_EN_Pin */
+  GPIO_InitStruct.Pin = LED_CAN1_TX_Pin|LED_CAN1_EN_Pin|LED_CAN2_TX_Pin|LED_CAN2_RX_Pin
+                          |LED_CAN2_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -161,18 +178,41 @@ void main_init_cb(void)
 
 	/* Init LEDs */
 	led_init(&hled_pwr, LED_PWR_GPIO_Port, LED_PWR_Pin, LED_MODE_ACTIVE, LED_ACTIVE_HIGH);
+	led_init(&hled_can_pwr_en_fault, LED_CAN_PWR_EN_FAULT_GPIO_Port, LED_CAN_PWR_EN_FAULT_Pin, LED_MODE_ACTIVE, LED_ACTIVE_HIGH);
+	led_init(&hled_can1en, LED_CAN1_EN_GPIO_Port, LED_CAN1_EN_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
 	led_init(&hled_can1rx, LED_CAN1_RX_GPIO_Port, LED_CAN1_RX_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
 	led_init(&hled_can1tx, LED_CAN1_TX_GPIO_Port, LED_CAN1_TX_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
+	led_init(&hled_can2en, LED_CAN2_EN_GPIO_Port, LED_CAN2_EN_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
 	led_init(&hled_can2rx, LED_CAN2_RX_GPIO_Port, LED_CAN2_RX_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
 	led_init(&hled_can2tx, LED_CAN2_TX_GPIO_Port, LED_CAN2_TX_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
 }
 
 void main_task_cb(void)
 {
+	static bool bLastCANPwrFault;
+
+	/* Check can power fault status */
+	bool bCANPwrFault = (GPIO_PIN_RESET == HAL_GPIO_ReadPin(CAN_PWR_FAULT_GPIO_Port, CAN_PWR_FAULT_Pin));
+	if (bCANPwrFault != bLastCANPwrFault)
+	{
+		/* Fault status changed, set / unset flashing */
+		if (bCANPwrFault) {
+			led_blink_start(&hled_can_pwr_en_fault, 250);
+		} else {
+			led_blink_stop(&hled_can_pwr_en_fault);
+		}
+
+		/* Wait for next change */
+		bLastCANPwrFault = bCANPwrFault;
+	}
+
 	/* update all the LEDs */
 	led_update(&hled_pwr);
+	led_update(&hled_can_pwr_en_fault);
+	led_update(&hled_can1en);
 	led_update(&hled_can1rx);
 	led_update(&hled_can1tx);
+	led_update(&hled_can2en);
 	led_update(&hled_can2rx);
 	led_update(&hled_can2tx);
 }
@@ -181,9 +221,11 @@ void can_on_enable_cb(uint8_t channel)
 {
 	if (channel == 0) {
 		HAL_GPIO_WritePin(CAN1_STBY_GPIO_Port, CAN1_STBY_Pin, GPIO_PIN_RESET);
+		led_set_active(&hled_can1en);
 	}
 	if (channel == 1) {
 		HAL_GPIO_WritePin(CAN2_STBY_GPIO_Port, CAN2_STBY_Pin, GPIO_PIN_RESET);
+		led_set_active(&hled_can2en);
 	}
 }
 
@@ -191,9 +233,11 @@ void can_on_disable_cb(uint8_t channel)
 {
 	if (channel == 0) {
 		HAL_GPIO_WritePin(CAN1_STBY_GPIO_Port, CAN1_STBY_Pin, GPIO_PIN_SET);
+		led_set_inactive(&hled_can1en);
 	}
 	if (channel == 1) {
 		HAL_GPIO_WritePin(CAN2_STBY_GPIO_Port, CAN2_STBY_Pin, GPIO_PIN_SET);
+		led_set_inactive(&hled_can2en);
 	}
 }
 
@@ -225,9 +269,6 @@ void can_identify_cb(uint32_t do_identify)
 	}
 }
 
-static uint8_t can_term_pwr_flags;
-#define CAN_TERM_PWR_FLAGS_BOTH_INTFC (0x03)
-
 void can_set_term_cb(uint8_t channel, GPIO_PinState state)
 {
 	if (GPIO_PIN_SET == state) {
@@ -239,8 +280,10 @@ void can_set_term_cb(uint8_t channel, GPIO_PinState state)
 	/* enable can power if termination is specified for both busses (bit of a hack...ssh)*/
 	if (CAN_TERM_PWR_FLAGS_BOTH_INTFC == can_term_pwr_flags) {
 		HAL_GPIO_WritePin(CAN_PWR_EN_GPIO_Port, CAN_PWR_EN_Pin, GPIO_PIN_SET);
+		led_set_active(&hled_can_pwr_en_fault);
 	} else {
 		HAL_GPIO_WritePin(CAN_PWR_EN_GPIO_Port, CAN_PWR_EN_Pin, GPIO_PIN_RESET);
+		led_set_inactive(&hled_can_pwr_en_fault);
 	}
 }
 
