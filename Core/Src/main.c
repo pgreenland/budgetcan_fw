@@ -286,7 +286,7 @@ void task_queue_to_host(void *argument)
     /* Check the queue to see if we have data TO the host to handle */
     if (xQueueReceive(hGS_CAN.queue_to_hostHandle, &frame_object.frame, portMAX_DELAY) == pdPASS) {
       if (USBD_GS_CAN_SendFrame(&hUSB, &frame_object.frame) == USBD_OK) {
-        can_on_rx_cb(frame_object.frame.channel, &frame_object.frame);
+        if (frame_object.frame.echo_id == 0xffffffff) can_on_rx_cb(frame_object.frame.channel, &frame_object.frame);
       }
       else {
         /* throw the message back onto the queue */
