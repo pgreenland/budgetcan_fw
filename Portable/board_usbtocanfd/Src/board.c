@@ -178,7 +178,7 @@ void main_init_cb(void)
 
 	/* Init LEDs */
 	led_init(&hled_pwr, LED_PWR_GPIO_Port, LED_PWR_Pin, LED_MODE_ACTIVE, LED_ACTIVE_HIGH);
-	led_init(&hled_can_pwr_en_fault, LED_CAN_PWR_EN_FAULT_GPIO_Port, LED_CAN_PWR_EN_FAULT_Pin, LED_MODE_ACTIVE, LED_ACTIVE_HIGH);
+	led_init(&hled_can_pwr_en_fault, LED_CAN_PWR_EN_FAULT_GPIO_Port, LED_CAN_PWR_EN_FAULT_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
 	led_init(&hled_can1en, LED_CAN1_EN_GPIO_Port, LED_CAN1_EN_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
 	led_init(&hled_can1rx, LED_CAN1_RX_GPIO_Port, LED_CAN1_RX_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
 	led_init(&hled_can1tx, LED_CAN1_TX_GPIO_Port, LED_CAN1_TX_Pin, LED_MODE_INACTIVE, LED_ACTIVE_HIGH);
@@ -279,15 +279,16 @@ void can_set_term_cb(uint8_t channel, GPIO_PinState state)
 
 	/* enable can power if termination is specified for both busses (bit of a hack...ssh)*/
 	if (CAN_TERM_PWR_FLAGS_BOTH_INTFC == can_term_pwr_flags) {
-		HAL_GPIO_WritePin(CAN_PWR_EN_GPIO_Port, CAN_PWR_EN_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(CAN_PWR_EN_GPIO_Port, CAN_PWR_EN_Pin, GPIO_PIN_RESET);
 		led_set_active(&hled_can_pwr_en_fault);
 	} else {
-		HAL_GPIO_WritePin(CAN_PWR_EN_GPIO_Port, CAN_PWR_EN_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(CAN_PWR_EN_GPIO_Port, CAN_PWR_EN_Pin, GPIO_PIN_SET);
 		led_set_inactive(&hled_can_pwr_en_fault);
 	}
 }
 
 GPIO_PinState can_get_term_cb(uint8_t channel)
 {
-	return (CAN_TERM_PWR_FLAGS_BOTH_INTFC == can_term_pwr_flags ? GPIO_PIN_SET : GPIO_PIN_RESET);
+	/* Return status for channel */
+	return (can_term_pwr_flags & (1U << channel)) ? GPIO_PIN_SET : GPIO_PIN_RESET;
 }
