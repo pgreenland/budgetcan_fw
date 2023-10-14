@@ -25,12 +25,16 @@ THE SOFTWARE.
 */
 
 /* Includes ------------------------------------------------------------------*/
+#include <stdio.h>
+
 #include "board.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "usbd_gs_can.h"
 #include "can.h"
 #include "led.h"
+
+static UART_HandleTypeDef hlpuart1;
 
 static LED_HandleTypeDef hled_pwr;
 static LED_HandleTypeDef hled_can1rx;
@@ -138,8 +142,83 @@ void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
+/**
+  * @brief LPUART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_LPUART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN LPUART1_Init 0 */
+
+  /* USER CODE END LPUART1_Init 0 */
+
+  /* USER CODE BEGIN LPUART1_Init 1 */
+
+  /* USER CODE END LPUART1_Init 1 */
+  hlpuart1.Instance = LPUART1;
+  hlpuart1.Init.BaudRate = 115200;
+  hlpuart1.Init.WordLength = UART_WORDLENGTH_8B;
+  hlpuart1.Init.StopBits = UART_STOPBITS_1;
+  hlpuart1.Init.Parity = UART_PARITY_NONE;
+  hlpuart1.Init.Mode = UART_MODE_TX_RX;
+  hlpuart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  hlpuart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  hlpuart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  hlpuart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  hlpuart1.FifoMode = UART_FIFOMODE_DISABLE;
+  if (HAL_UART_Init(&hlpuart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&hlpuart1, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&hlpuart1, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&hlpuart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN LPUART1_Init 2 */
+
+  /* USER CODE END LPUART1_Init 2 */
+
+}
+
+/**
+ * @brief Implementation of stdlib _write function for stdio output.
+ *        Allowing for use of printf
+ *
+ * @param fd File descriptor to write to (unused)
+ * @param ptr String to write
+ * @param len Length of string to write
+ *
+ * @return Number of characters written (will always be equal to len)
+ */
+int _write(int fd, char *ptr, int len)
+{
+    (void)fd;
+
+    /* Write characters provided to debug UART */
+    HAL_UART_Transmit(&hlpuart1, (uint8_t*)ptr, (uint16_t)len, HAL_MAX_DELAY);
+
+    /* Return that all characters were written */
+    return len;
+}
+
 void main_init_cb(void)
 {
+	/* Init UART */
+	MX_LPUART1_UART_Init();
+
+	/* Here we go */
+	printf("Welcome!\n");
+
 	/* Enable power led */
 	HAL_GPIO_WritePin(LED_PWR_GPIO_Port, LED_PWR_Pin, GPIO_PIN_SET);
 
